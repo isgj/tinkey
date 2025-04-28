@@ -22,7 +22,12 @@ To add:
 ## Usage
 
 ```bash
-go run github.com/isgj/tinkey
+go run github.com/isgj/tinkey@latest
+
+# or install it first
+go install github.com/isgj/tinkey@latest
+# then run it (GOPATH/bin should be part of the path)
+tinkey create-keyset
 ```
 
 ## Credits
