@@ -17,7 +17,7 @@ func listKeyset(opts *cliOpts) error {
 	for i := range kh.Len() {
 		e, err := kh.Entry(i)
 		if err != nil {
-			return fmt.Errorf("Error reading key: %v", err)
+			return fmt.Errorf("error reading key: %v", err)
 		}
 
 		fmt.Printf("%12d %9s %9t\n", e.KeyID(), e.KeyStatus(), e.IsPrimary())
