@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tink-crypto/tink-go-gcpkms/v2/integration/gcpkms"
+	"github.com/tink-crypto/tink-go-awskms/v2/integration/awskms" // AWS KMS
+	"github.com/tink-crypto/tink-go-gcpkms/v2/integration/gcpkms" // GCP KMS
 	"github.com/tink-crypto/tink-go/v2/core/registry"
 	"github.com/tink-crypto/tink-go/v2/testing/fakekms"
 	"github.com/tink-crypto/tink-go/v2/tink"
-	"google.golang.org/api/option"
+	"google.golang.org/api/option" // For GCP KMS options
 )
 
 func getKEK(masterKeyURI, credentialPath string) (tink.AEAD, error) {
@@ -36,14 +37,19 @@ func getKMSClient(uri, credPath string) (registry.KMSClient, error) {
 
 	switch {
 	case strings.HasPrefix(uri, "gcp-kms://"):
-		opts := []option.ClientOption{}
+		opts := []option.ClientOption{} // GCP options from google.golang.org/api/option
 		if credPath != "" {
 			opts = append(opts, option.WithCredentialsFile(credPath))
 		}
-
 		return gcpkms.NewClientWithOptions(ctx, uri, opts...)
 	case strings.HasPrefix(uri, "fake-kms://"): // not documented on purpose
 		return fakekms.NewClient(uri)
+	case strings.HasPrefix(uri, "aws-kms://"):
+		awsOpts := []awskms.ClientOption{} // AWS options from the awskms package
+		if credPath != "" {
+			awsOpts = append(awsOpts, awskms.WithCredentialPath(credPath))
+		}
+		return awskms.NewClientWithOptions(uri, awsOpts...)
 		// Add logic for other KMS providers (AWS, etc.)
 	}
 
