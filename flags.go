@@ -156,7 +156,7 @@ func validateAddOpts(opts *cliOpts) error {
 	}
 
 	if opts.keyTemplate == "" {
-		return nil
+		return fmt.Errorf("flag key-template is required")
 	}
 
 	_, ok := supportedTemplates[opts.keyTemplate]

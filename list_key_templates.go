@@ -2,6 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"maps"
+	"slices"
 
 	// Import the primitive packages that contain the templates you want to list
 	"github.com/tink-crypto/tink-go/v2/aead"
@@ -53,7 +56,7 @@ var supportedTemplates = map[string]func() *tink_go_proto.KeyTemplate{
 	"ED25519_NO_PREFIX":           signature.ED25519KeyWithoutPrefixTemplate,
 
 	"RSA_SSA_PKCS1_3072_SHA256_F4": signature.RSA_SSA_PKCS1_3072_SHA256_F4_Key_Template,
-	"RSA_SSA_PKCS1_3072_SHA512_F4": signature.RSA_SSA_PKCS1_4096_SHA512_F4_Key_Template,
+	"RSA_SSA_PKCS1_4096_SHA512_F4": signature.RSA_SSA_PKCS1_4096_SHA512_F4_Key_Template,
 	// "RSA_SSA_PSS_3072_SHA256_SHA256_32_F4": signature.RSA_SSA_PSS_3072_SHA256_SHA256_32_F4_Key_Template ,
 	// "RSA_SSA_PSS_4096_SHA512_SHA512_64_F4": signature.RSA_SSA_PSS_4096_SHA512_SHA512_64_F4_Key_Template ,
 
@@ -111,12 +114,11 @@ var supportedTemplates = map[string]func() *tink_go_proto.KeyTemplate{
 	"RS512_4096_F4_RAW": jwt.RawRS512_4096_F4_Key_Template,
 }
 
-func listKeyTemplates(*cliOpts) error {
-	fmt.Println("The following key template names are recognized:")
-	// Iterate through the map keys (names) and print them
-	// You could sort them alphabetically if desired.
-	for name := range supportedTemplates {
-		fmt.Printf("  %s\n", name)
+func listKeyTemplates(to io.Writer, _ *cliOpts) error {
+	fmt.Fprintln(to, "The following key template names are recognized:")
+
+	for _, name := range slices.Sorted(maps.Keys(supportedTemplates)) {
+		fmt.Fprintf(to, "  %s\n", name)
 	}
 
 	return nil

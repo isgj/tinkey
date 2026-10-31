@@ -1,10 +1,18 @@
 package main
 
-import "github.com/tink-crypto/tink-go/v2/keyset"
+import (
+	"fmt"
+
+	"github.com/tink-crypto/tink-go/v2/keyset"
+)
 
 func addKey(opts *cliOpts) error {
+	keyTemplate, ok := supportedTemplates[opts.keyTemplate]
+	if !ok {
+		return fmt.Errorf("unsupported key template: %s", opts.keyTemplate)
+	}
+
 	return updateKeyset(opts, func(manager *keyset.Manager) error {
-		keyTemplate := supportedTemplates[opts.keyTemplate]
 		_, err := manager.Add(keyTemplate())
 		return err
 	})

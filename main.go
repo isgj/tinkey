@@ -44,11 +44,11 @@ func main() {
 		"delete-key":           {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: deleteKey},
 		"disable-key":          {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: disableKey},
 		"enable-key":           {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: enableKey},
-		"list-keyset":          {flags: registerInputOpts, validate: validateInputOpts, run: listKeyset},
+		"list-keyset":          {flags: registerInputOpts, validate: validateInputOpts, run: func(opts *cliOpts) error { return listKeyset(os.Stdout, opts) }},
 		"list-key-templates": {
 			flags:    func(*flag.FlagSet, *cliOpts) {},
 			validate: func(*cliOpts) error { return nil },
-			run:      listKeyTemplates,
+			run:      func(opts *cliOpts) error { return listKeyTemplates(os.Stdout, opts) },
 		},
 		"promote-key": {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: promoteKey},
 	}
