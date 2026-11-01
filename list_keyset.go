@@ -1,9 +1,27 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+
+	"github.com/urfave/cli/v3"
 )
+
+func listKeysetCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "list-keyset",
+		Usage: "Lists keys in a keyset.",
+		Flags: inputFlags(),
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			opts := newCliOpts(cmd)
+			if err := validateInputOpts(opts); err != nil {
+				return err
+			}
+			return listKeyset(cmd.Root().Writer, opts)
+		},
+	}
+}
 
 func listKeyset(to io.Writer, opts *cliOpts) error {
 	masterAEAD, err := getKEK(opts.masterKeyURI, opts.credential)

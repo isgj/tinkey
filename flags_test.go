@@ -1,12 +1,13 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+
+	"github.com/urfave/cli/v3"
 )
 
 func TestValidateInputOpts(t *testing.T) {
@@ -232,35 +233,129 @@ func TestValidateAddOpts(t *testing.T) {
 	}
 }
 
-func TestRegisteredFlagDefaults(t *testing.T) {
+// findFlag returns the flag with the given name, or fails the test.
+func findFlag(t *testing.T, flags []cli.Flag, name string) cli.Flag {
+	t.Helper()
+
+	for _, f := range flags {
+		if slices.Contains(f.Names(), name) {
+			return f
+		}
+	}
+	t.Fatalf("flag %q not found in %v", name, flags)
+	return nil
+}
+
+func TestSharedFlagDefaults(t *testing.T) {
 	tests := []struct {
-		name     string
-		register func(*flag.FlagSet, *cliOpts)
-		want     cliOpts
+		name      string
+		flags     []cli.Flag
+		wantFlag  string
+		wantValue any
 	}{
-		{name: "input", register: registerInputOpts, want: cliOpts{inFormat: "json"}},
-		{name: "output", register: registerOutputOpts, want: cliOpts{inFormat: "json", outFormat: "json"}},
-		{name: "key-id", register: registerKeyIDOpts, want: cliOpts{inFormat: "json", outFormat: "json"}},
 		{
-			name:     "create-keyset",
-			register: registerCreateKeysetOpts,
-			want:     cliOpts{inFormat: "json", outFormat: "json", keyTemplate: "AES128_GCM"},
+			name:      "input in-format defaults to json",
+			flags:     inputFlags(),
+			wantFlag:  "in-format",
+			wantValue: "json",
 		},
-		{name: "add-key", register: registerAddOpts, want: cliOpts{inFormat: "json", outFormat: "json"}},
+		{
+			name:      "output out-format defaults to json",
+			flags:     outputFlags(),
+			wantFlag:  "out-format",
+			wantValue: "json",
+		},
+		{
+			name:      "create-keyset key-template defaults to AES128_GCM",
+			flags:     createFlags(),
+			wantFlag:  "key-template",
+			wantValue: "AES128_GCM",
+		},
+		{
+			name:      "add-key key-template has no default",
+			flags:     addKeyFlags(),
+			wantFlag:  "key-template",
+			wantValue: "",
+		},
+		{
+			name:      "key-id has no default",
+			flags:     keyIDFlags(),
+			wantFlag:  "key-id",
+			wantValue: uint(0),
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var opts cliOpts
-			fs := flag.NewFlagSet("test", flag.ContinueOnError)
-			fs.SetOutput(io.Discard)
-			tc.register(fs, &opts)
-
-			if err := fs.Parse(nil); err != nil {
-				t.Fatalf("fs.Parse() error: %v", err)
+			f := findFlag(t, tc.flags, tc.wantFlag)
+			switch got := f.(type) {
+			case *cli.StringFlag:
+				if got.Value != tc.wantValue.(string) {
+					t.Errorf("%s default = %q, want %q", tc.wantFlag, got.Value, tc.wantValue)
+				}
+			case *cli.UintFlag:
+				if got.Value != tc.wantValue.(uint) {
+					t.Errorf("%s default = %d, want %d", tc.wantFlag, got.Value, tc.wantValue)
+				}
 			}
-			if opts != tc.want {
-				t.Errorf("defaults = %+v, want %+v", opts, tc.want)
+		})
+	}
+}
+
+// TestSharedFlagComposition checks that the flag builders compose the way the
+// commands expect: each builder includes all flags of the smaller builder plus
+// its own additions.
+func TestSharedFlagComposition(t *testing.T) {
+	tests := []struct {
+		name        string
+		flags       []cli.Flag
+		wantFlags   []string
+		wantMissing []string
+	}{
+		{
+			name:        "input flags",
+			flags:       inputFlags(),
+			wantFlags:   []string{"in", "in-format", "master-key-uri", "credential"},
+			wantMissing: []string{"out", "out-format", "key-id", "key-template"},
+		},
+		{
+			name:        "output flags extend input flags",
+			flags:       outputFlags(),
+			wantFlags:   []string{"in", "in-format", "master-key-uri", "credential", "out", "out-format"},
+			wantMissing: []string{"key-id", "key-template"},
+		},
+		{
+			name:        "key-id flags extend output flags",
+			flags:       keyIDFlags(),
+			wantFlags:   []string{"out", "out-format", "key-id"},
+			wantMissing: []string{"key-template"},
+		},
+		{
+			name:        "create-keyset flags extend output flags",
+			flags:       createFlags(),
+			wantFlags:   []string{"out", "out-format", "key-template"},
+			wantMissing: []string{"key-id"},
+		},
+		{
+			name:        "add-key flags extend output flags",
+			flags:       addKeyFlags(),
+			wantFlags:   []string{"out", "out-format", "key-template"},
+			wantMissing: []string{"key-id"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, want := range tc.wantFlags {
+				findFlag(t, tc.flags, want)
+			}
+			for _, missing := range tc.wantMissing {
+				for _, f := range tc.flags {
+					if slices.Contains(f.Names(), missing) {
+						t.Errorf("flags contain unexpected flag %q", missing)
+						break
+					}
+				}
 			}
 		})
 	}

@@ -3,8 +3,28 @@ package main
 import (
 	"fmt"
 
+	"github.com/urfave/cli/v3"
+
 	"github.com/tink-crypto/tink-go/v2/keyset"
 )
+
+func createKeysetCommand() *cli.Command {
+	return &cli.Command{
+		Name:   "create-keyset",
+		Usage:  "Creates a new keyset.",
+		Flags:  createFlags(),
+		Action: commandAction(validateCreateKeysetOpts, createKeyset),
+	}
+}
+
+func createPublicKeysetCommand() *cli.Command {
+	return &cli.Command{
+		Name:   "create-public-keyset",
+		Usage:  "Creates a public keyset from a private keyset.",
+		Flags:  outputFlags(),
+		Action: commandAction(validateOutputOpts, createPublicKeyset),
+	}
+}
 
 func createKeyset(opts *cliOpts) error {
 	keyTemplate := supportedTemplates[opts.keyTemplate]

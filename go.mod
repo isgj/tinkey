@@ -5,6 +5,7 @@ go 1.27.2
 require (
 	github.com/tink-crypto/tink-go-gcpkms/v2 v2.4.0
 	github.com/tink-crypto/tink-go/v2 v2.9.0
+	github.com/urfave/cli/v3 v3.14.0
 	google.golang.org/api v0.304.0
 )
 

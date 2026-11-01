@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"maps"
 	"slices"
+
+	"github.com/urfave/cli/v3"
 
 	// Import the primitive packages that contain the templates you want to list
 	"github.com/tink-crypto/tink-go/v2/aead"
@@ -112,6 +115,16 @@ var supportedTemplates = map[string]func() *tink_go_proto.KeyTemplate{
 	"RS256_3072_F4_RAW": jwt.RawRS256_3072_F4_Key_Template,
 	"RS384_3072_F4_RAW": jwt.RawRS384_3072_F4_Key_Template,
 	"RS512_4096_F4_RAW": jwt.RawRS512_4096_F4_Key_Template,
+}
+
+func listKeyTemplatesCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "list-key-templates",
+		Usage: "Lists all supported key templates.",
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return listKeyTemplates(cmd.Root().Writer, newCliOpts(cmd))
+		},
+	}
 }
 
 func listKeyTemplates(to io.Writer, _ *cliOpts) error {

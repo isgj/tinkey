@@ -1,86 +1,68 @@
 package main
 
 import (
-	"flag"
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/urfave/cli/v3"
 )
 
-func printUsage() {
-	const usage = `Usage: %s <command> [flags]
-
-Available commands:
-  add-key               Generates and adds a new key to a keyset.
-  create-keyset         Creates a new keyset.
-  create-public-keyset  Creates a public keyset from a private keyset.
-  delete-key            Deletes a specified key in a keyset.
-  disable-key           Disables a specified key in a keyset.
-  enable-key            Enables a specified key in a keyset.
-  list-keyset           Lists keys in a keyset.
-  list-key-templates    Lists all supported key templates.
-  promote-key           Promotes a specified key to primary.
-
-Use '<command> --help' for more information on a specific command.
-`
-	fmt.Fprintf(os.Stderr, usage, os.Args[0])
+// commandAction builds a cli.ActionFunc that reads the shared flags into
+// cliOpts, validates them and runs the command.
+func commandAction(validate func(*cliOpts) error, run func(*cliOpts) error) cli.ActionFunc {
+	return func(ctx context.Context, cmd *cli.Command) error {
+		opts := newCliOpts(cmd)
+		if err := validate(opts); err != nil {
+			return err
+		}
+		return run(opts)
+	}
 }
 
-type command struct {
-	flags    func(cmd *flag.FlagSet, opts *cliOpts)
-	validate func(opts *cliOpts) error
-	run      func(opts *cliOpts) error
+func newRootCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "tinkey",
+		Usage: "Manage Tink keysets.",
+		Description: "Tinkey is a tool to manage Tink keysets: creating, reading, updating and " +
+			"listing them, optionally encrypted at rest with a KMS master key.",
+		Commands: []*cli.Command{
+			addKeyCommand(),
+			createKeysetCommand(),
+			createPublicKeysetCommand(),
+			deleteKeyCommand(),
+			disableKeyCommand(),
+			enableKeyCommand(),
+			listKeysetCommand(),
+			listKeyTemplatesCommand(),
+			promoteKeyCommand(),
+		},
+		// Generates the hidden "completion" subcommand and the dynamic
+		// completion flag the sourced shell scripts rely on.
+		EnableShellCompletion: true,
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			// cli hands execution to this fallback when the first positional
+			// argument does not match a subcommand, or when no arguments are
+			// given at all.
+			cli.HelpPrinter(cmd.Root().ErrWriter, cli.RootCommandHelpTemplate, cmd.Root())
+			if cmd.Args().Present() {
+				return fmt.Errorf("unknown command '%s'", cmd.Args().First())
+			}
+			return errors.New("expected a subcommand")
+		},
+	}
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	commands := map[string]command{
-		"add-key":              {flags: registerAddOpts, validate: validateAddOpts, run: addKey},
-		"create-keyset":        {flags: registerCreateKeysetOpts, validate: validateCreateKeysetOpts, run: createKeyset},
-		"create-public-keyset": {flags: registerOutputOpts, validate: validateOutputOpts, run: createPublicKeyset},
-		"delete-key":           {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: deleteKey},
-		"disable-key":          {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: disableKey},
-		"enable-key":           {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: enableKey},
-		"list-keyset":          {flags: registerInputOpts, validate: validateInputOpts, run: func(opts *cliOpts) error { return listKeyset(os.Stdout, opts) }},
-		"list-key-templates": {
-			flags:    func(*flag.FlagSet, *cliOpts) {},
-			validate: func(*cliOpts) error { return nil },
-			run:      func(opts *cliOpts) error { return listKeyTemplates(os.Stdout, opts) },
-		},
-		"promote-key": {flags: registerKeyIDOpts, validate: validateKeyIDOpts, run: promoteKey},
-	}
-
-	command, ok := commands[os.Args[1]]
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error: Unknown command '%s'\n", os.Args[1])
-		printUsage()
-		os.Exit(1)
-	}
-
-	// --- Parse Flags ---
-	opts := cliOpts{}
-
-	cmd := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
-	command.flags(cmd, &opts)
-
-	err := cmd.Parse(os.Args[2:])
-	if err != nil {
-		fmt.Printf("Error parsing flags: %v\n", err)
-		os.Exit(1)
-	}
-
-	if err := command.validate(&opts); err != nil {
-		fmt.Printf("%v\n", err)
-		cmd.Usage()
-		os.Exit(1)
-	}
-
-	// --- Run Command ---
-	if err := command.run(&opts); err != nil {
-		fmt.Printf("%v\n", err)
+	root := newRootCommand()
+	if err := root.Run(ctx, os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }

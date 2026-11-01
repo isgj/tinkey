@@ -1,12 +1,13 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"strings"
 )
 
+// cliOpts carries the flag values shared by the keyset-manipulating
+// subcommands. It is populated from the parsed cli.Command by newCliOpts.
 type cliOpts struct {
 	in           string
 	inFormat     string
@@ -19,24 +20,6 @@ type cliOpts struct {
 	keyID uint
 
 	keyTemplate string
-}
-
-func registerInputOpts(cmd *flag.FlagSet, opts *cliOpts) {
-	cmd.StringVar(&opts.in, "in", "", "The input filename, must exist, to read the keyset from or standard input if not specified")
-	cmd.StringVar(&opts.inFormat, "in-format", "json", "The input format: json or binary (case-insensitive).")
-	cmd.StringVar(&opts.masterKeyURI, "master-key-uri", "", "The keyset might be encrypted with a master key in Google Cloud KMS or AWS KMS. "+
-		"This option specifies the URI of the master key. "+
-		"If missing, read or write cleartext keysets. "+
-		"Google Cloud KMS keys have this format: "+
-		"gcp-kms://projects/*/locations/*/keyRings/*/cryptoKeys/*. "+
-		"AWS KMS keys have this format: "+
-		"aws-kms://arn:aws:kms:<region>:<account-id>:key/<key-id>.")
-	cmd.StringVar(&opts.credential, "credential", "", "If --master-key-uri is specified, this option specifies the credentials file path. "+
-		"Must exist if specified. If missing, use default credentials. "+
-		"Google Cloud credentials are service account JSON files. "+
-		"AWS credentials are properties files with the AWS access key ID is expected "+
-		"to be in the accessKey property and the AWS secret key is expected to be in "+
-		"the secretKey property.")
 }
 
 func validateInputOpts(opts *cliOpts) error {
@@ -80,13 +63,6 @@ func validateInputOpts(opts *cliOpts) error {
 	return nil
 }
 
-func registerOutputOpts(cmd *flag.FlagSet, opts *cliOpts) {
-	registerInputOpts(cmd, opts)
-
-	cmd.StringVar(&opts.out, "out", "", "The output filename, must not exist, to write the keyset to or standard output if not specified")
-	cmd.StringVar(&opts.outFormat, "out-format", "json", "The output format: json or binary (case-insensitive).")
-}
-
 func validateOutputOpts(opts *cliOpts) error {
 	if err := validateInputOpts(opts); err != nil {
 		return err
@@ -109,12 +85,6 @@ func validateOutputOpts(opts *cliOpts) error {
 	return nil
 }
 
-func registerKeyIDOpts(cmd *flag.FlagSet, opts *cliOpts) {
-	registerOutputOpts(cmd, opts)
-
-	cmd.UintVar(&opts.keyID, "key-id", 0, "The target key id")
-}
-
 func validateKeyIDOpts(opts *cliOpts) error {
 	if err := validateOutputOpts(opts); err != nil {
 		return err
@@ -123,12 +93,6 @@ func validateKeyIDOpts(opts *cliOpts) error {
 		return fmt.Errorf("flag key-id is required")
 	}
 	return nil
-}
-
-func registerCreateKeysetOpts(cmd *flag.FlagSet, opts *cliOpts) {
-	registerOutputOpts(cmd, opts)
-
-	cmd.StringVar(&opts.keyTemplate, "key-template", "AES128_GCM", "The key template name. Run list-key-templates to get supported names.")
 }
 
 func validateCreateKeysetOpts(opts *cliOpts) error {
@@ -142,12 +106,6 @@ func validateCreateKeysetOpts(opts *cliOpts) error {
 	}
 
 	return nil
-}
-
-func registerAddOpts(cmd *flag.FlagSet, opts *cliOpts) {
-	registerOutputOpts(cmd, opts)
-
-	cmd.StringVar(&opts.keyTemplate, "key-template", "", "The key template name. Run list-key-templates to get supported names.")
 }
 
 func validateAddOpts(opts *cliOpts) error {
